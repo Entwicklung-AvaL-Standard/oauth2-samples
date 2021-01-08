@@ -16,7 +16,12 @@ import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
+import org.keycloak.adapters.KeycloakDeployment;
+import org.keycloak.adapters.KeycloakDeploymentBuilder;
+import org.keycloak.adapters.rotation.AdapterTokenVerifier;
+import org.keycloak.adapters.rotation.AdapterTokenVerifier.VerifiedTokens;
 import org.keycloak.authorization.client.AuthzClient;
+import org.keycloak.common.VerificationException;
 import org.keycloak.representations.idm.authorization.AuthorizationResponse;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -57,7 +62,11 @@ public class OAuthDemo {
     configOAuthMap = jsonOM.readValue(configOAuthString, Map.class);
   }
 
-  private void checkAccessTokenString(String accessTokenString) throws JsonParseException, JsonMappingException, IOException {
+  private void checkAccessTokenString(String accessTokenString, KeycloakDeployment keycloakDeployment)
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException {
     String jwtParts[] = accessTokenString.split("\\.");
     String header_b64 = jwtParts[0];
     String content_b64 = jwtParts[1];
@@ -69,6 +78,17 @@ public class OAuthDemo {
     assertNotNull(accessTokenMap.get("iss"));
     // das Token ist von demjenigen ausgestellt, den wir befragt haben
     assertTrue(accessTokenMap.get("iss").toString().startsWith(configOAuthMap.get("auth-server-url").toString()));
+
+    if (keycloakDeployment != null) {
+      /*
+       * prueft intern die JWT-Signatur inklusive Beschaffung der notwendigen PublicKeys vom Server. Daher ist auch ein solches
+       * KeycloakDeployment notwendig, da dort die notwendigen URLs enthalten sind.
+       */
+      VerifiedTokens tokens = AdapterTokenVerifier.verifyTokens(accessTokenString, null, keycloakDeployment);
+      if (tokens != null) {
+        tokens = null;
+      }
+    }
   }
 
   private String postFormToURL(MultiValueMap<String, String> formData, String url) {
@@ -94,7 +114,11 @@ public class OAuthDemo {
   }
 
   @Test
-  public void test0001_AccessToken_mit_Spring_RestTemplate() throws JsonParseException, JsonMappingException, IOException {
+  public void test0001_AccessToken_mit_Spring_RestTemplate()
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException {
 
     MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
     formData.add("client_id", configOAuthMap.get("resource").toString());
@@ -111,11 +135,15 @@ public class OAuthDemo {
     assertTrue("kein access_token-Key enthalten", jsonResult.containsKey("access_token"));
 
     String accessTokenString = jsonResult.get("access_token").toString();
-    checkAccessTokenString(accessTokenString);
+    checkAccessTokenString(accessTokenString, null);
   }
 
   @Test
-  public void test0002_AccessToken_mit_Spring_OAuth2RestTemplate() throws JsonParseException, JsonMappingException, IOException {
+  public void test0002_AccessToken_mit_Spring_OAuth2RestTemplate()
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException {
     String tokenUrl = configOAuthMap.get("auth-server-url") + "/realms/" + configOAuthMap.get("realm")
         + "/protocol/openid-connect/token";
 
@@ -128,11 +156,15 @@ public class OAuthDemo {
     OAuth2RestTemplate oa2rt = new OAuth2RestTemplate(ccrd);
     OAuth2AccessToken oa2at = oa2rt.getAccessToken();
     String accessTokenString = oa2at.getValue();
-    checkAccessTokenString(accessTokenString);
+    checkAccessTokenString(accessTokenString, null);
   }
 
   @Test
-  public void test0003_AccessToken_mit_Keycloak_AuthzClient() throws JsonParseException, JsonMappingException, IOException {
+  public void test0003_AccessToken_mit_Keycloak_AuthzClient()
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException {
     AuthzClient authzClient = AuthzClient.create(new ByteArrayInputStream(configOAuthString.getBytes(StandardCharsets.UTF_8)));
     /*
      * Erfordert, dass die Client-Konfiguration im Keycloak-Server auf "Access Type = confidential" und
@@ -141,6 +173,24 @@ public class OAuthDemo {
      */
     AuthorizationResponse atr = authzClient.authorization().authorize();
     String accessTokenString = atr.getToken();
-    checkAccessTokenString(accessTokenString);
+    checkAccessTokenString(accessTokenString, null);
+  }
+
+  @Test
+  public void test0004_AccessToken_mit_Keycloak_AuthzClient_und_CryptoVerification()
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException {
+    AuthzClient authzClient = AuthzClient.create(new ByteArrayInputStream(configOAuthString.getBytes(StandardCharsets.UTF_8)));
+    /*
+     * Erfordert, dass die Client-Konfiguration im Keycloak-Server auf "Access Type = confidential" und
+     * "Authorization Enabled = ON" hat, da hier standardmaessig der grant_type=urn:ietf:params:oauth:grant-type:uma-ticket
+     * verwendet wird.
+     */
+    AuthorizationResponse atr = authzClient.authorization().authorize();
+    String accessTokenString = atr.getToken();
+    KeycloakDeployment kcd = KeycloakDeploymentBuilder.build(authzClient.getConfiguration());
+    checkAccessTokenString(accessTokenString, kcd);
   }
 }
