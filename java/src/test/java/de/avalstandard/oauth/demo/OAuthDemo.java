@@ -3,6 +3,7 @@ package de.avalstandard.oauth.demo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
+import org.keycloak.OAuth2Constants;
 import org.keycloak.adapters.KeycloakDeployment;
 import org.keycloak.adapters.KeycloakDeploymentBuilder;
 import org.keycloak.adapters.rotation.AdapterTokenVerifier;
@@ -62,7 +64,7 @@ public class OAuthDemo {
     configOAuthMap = jsonOM.readValue(configOAuthString, Map.class);
   }
 
-  private void checkAccessTokenString(String accessTokenString, KeycloakDeployment keycloakDeployment)
+  private void checkAccessTokenString(String accessTokenString, String expectedAudience, KeycloakDeployment keycloakDeployment)
       throws JsonParseException,
         JsonMappingException,
         IOException,
@@ -78,6 +80,10 @@ public class OAuthDemo {
     assertNotNull(accessTokenMap.get("iss"));
     // das Token ist von demjenigen ausgestellt, den wir befragt haben
     assertTrue(accessTokenMap.get("iss").toString().startsWith(configOAuthMap.get("auth-server-url").toString()));
+
+    if (expectedAudience != null) {
+      assertEquals(expectedAudience, accessTokenMap.get("aud"));
+    }
 
     if (keycloakDeployment != null) {
       /*
@@ -135,7 +141,67 @@ public class OAuthDemo {
     assertTrue("kein access_token-Key enthalten", jsonResult.containsKey("access_token"));
 
     String accessTokenString = jsonResult.get("access_token").toString();
-    checkAccessTokenString(accessTokenString, null);
+    checkAccessTokenString(accessTokenString, null, null);
+  }
+
+  @Test
+  public void test0001a_AccessToken_und_audience_mit_Spring_RestTemplate()
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException {
+    /* @formatter:off
+
+    curl -X POST \
+      http://${host}:${port}/auth/realms/${realm}/protocol/openid-connect/token \
+      --data "grant_type=urn:ietf:params:oauth:grant-type:uma-ticket" \
+      --data "client_id={resource_server_client_id}" \
+      --data "client_secret={resource_server_client_secret}" \
+      --data "audience={resource_server_client_id}"
+
+       @formatter:on
+     */
+
+    String tokenUrl = configOAuthMap.get("auth-server-url") + "/realms/" + configOAuthMap.get("realm")
+        + "/protocol/openid-connect/token";
+
+    String desiredAudience = "aval-oauth-demo-github-unittest-demo-client-1";
+
+    MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+    formData.add("client_id", configOAuthMap.get("resource").toString());
+    formData.add("client_secret", ((Map<?, ?>) configOAuthMap.get("credentials")).get("secret").toString());
+    formData.add("audience", desiredAudience);
+
+    String[] grantTypes = new String[] {
+        OAuth2Constants.UMA_GRANT_TYPE, // "urn:ietf:params:oauth:grant-type:uma-ticket"
+        OAuth2Constants.CLIENT_CREDENTIALS, // "client_credentials"
+    };
+
+    for (int i = 0; i < grantTypes.length; i++) {
+      String grant_type = grantTypes[i];
+
+      formData.remove(OAuth2Constants.GRANT_TYPE);
+      formData.add(OAuth2Constants.GRANT_TYPE, grant_type);
+      String result = postFormToURL(formData, tokenUrl);
+      Map jsonResult = jsonOM.readValue(result, Map.class);
+      String accessTokenString = jsonResult.get("access_token").toString();
+
+      if (OAuth2Constants.CLIENT_CREDENTIALS.equals(grant_type)) {
+        /*
+         * Fuer AccessTokens mit grant_type=client_credentials vergibt der Keycloak nicht die geforderte Audience, sondern traegt
+         * immer "account" ein.
+         */
+        checkAccessTokenString(accessTokenString, "account", null);
+      } else if (OAuth2Constants.UMA_GRANT_TYPE.equals(grant_type)) {
+        /*
+         * Wenn das AccessToken mit mit grant_type=urn:ietf:params:oauth:grant-type:uma-ticket angefordert, dann traegt der
+         * Keycloak-Server die gewuenscht Audience im "aud"-Claim ein.
+         */
+        checkAccessTokenString(accessTokenString, desiredAudience, null);
+      } else {
+        fail("unbehandelter grant_type");
+      }
+    }
   }
 
   @Test
@@ -156,7 +222,7 @@ public class OAuthDemo {
     OAuth2RestTemplate oa2rt = new OAuth2RestTemplate(ccrd);
     OAuth2AccessToken oa2at = oa2rt.getAccessToken();
     String accessTokenString = oa2at.getValue();
-    checkAccessTokenString(accessTokenString, null);
+    checkAccessTokenString(accessTokenString, null, null);
   }
 
   @Test
@@ -173,7 +239,7 @@ public class OAuthDemo {
      */
     AuthorizationResponse atr = authzClient.authorization().authorize();
     String accessTokenString = atr.getToken();
-    checkAccessTokenString(accessTokenString, null);
+    checkAccessTokenString(accessTokenString, null, null);
   }
 
   @Test
@@ -191,6 +257,6 @@ public class OAuthDemo {
     AuthorizationResponse atr = authzClient.authorization().authorize();
     String accessTokenString = atr.getToken();
     KeycloakDeployment kcd = KeycloakDeploymentBuilder.build(authzClient.getConfiguration());
-    checkAccessTokenString(accessTokenString, kcd);
+    checkAccessTokenString(accessTokenString, null, kcd);
   }
 }
