@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -15,6 +16,8 @@ import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
+import org.keycloak.authorization.client.AuthzClient;
+import org.keycloak.representations.idm.authorization.AuthorizationResponse;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -128,4 +131,16 @@ public class OAuthDemo {
     checkAccessTokenString(accessTokenString);
   }
 
+  @Test
+  public void test0003_AccessToken_mit_Keycloak_AuthzClient() throws JsonParseException, JsonMappingException, IOException {
+    AuthzClient authzClient = AuthzClient.create(new ByteArrayInputStream(configOAuthString.getBytes(StandardCharsets.UTF_8)));
+    /*
+     * Erfordert, dass die Client-Konfiguration im Keycloak-Server auf "Access Type = confidential" und
+     * "Authorization Enabled = ON" hat, da hier standardmaessig der grant_type=urn:ietf:params:oauth:grant-type:uma-ticket
+     * verwendet wird.
+     */
+    AuthorizationResponse atr = authzClient.authorization().authorize();
+    String accessTokenString = atr.getToken();
+    checkAccessTokenString(accessTokenString);
+  }
 }
