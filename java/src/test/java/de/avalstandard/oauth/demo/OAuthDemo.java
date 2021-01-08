@@ -20,6 +20,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.client.OAuth2RestTemplate;
+import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsResourceDetails;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
@@ -31,6 +34,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class OAuthDemo {
 
+  private static ObjectMapper jsonOM = new ObjectMapper();
   private static String configOAuthString = null;
   private static Map<String, Object> configOAuthMap = null;
 
@@ -47,8 +51,21 @@ public class OAuthDemo {
     }
     configOAuthString = sb.toString();
 
-    ObjectMapper jsonOM = new ObjectMapper();
     configOAuthMap = jsonOM.readValue(configOAuthString, Map.class);
+  }
+
+  private void checkAccessTokenString(String accessTokenString) throws JsonParseException, JsonMappingException, IOException {
+    String jwtParts[] = accessTokenString.split("\\.");
+    String header_b64 = jwtParts[0];
+    String content_b64 = jwtParts[1];
+    String sig_b64 = jwtParts[2];
+
+    Map<String, Object> accessTokenMap = jsonOM.readValue(Base64.getUrlDecoder().decode(content_b64), Map.class);
+    // das Token ist fuer uns ausgestellt
+    assertEquals(configOAuthMap.get("resource"), accessTokenMap.get("azp"));
+    assertNotNull(accessTokenMap.get("iss"));
+    // das Token ist von demjenigen ausgestellt, den wir befragt haben
+    assertTrue(accessTokenMap.get("iss").toString().startsWith(configOAuthMap.get("auth-server-url").toString()));
   }
 
   private String postFormToURL(MultiValueMap<String, String> formData, String url) {
@@ -87,22 +104,28 @@ public class OAuthDemo {
     String result = postFormToURL(formData, tokenUrl);
     assertNotNull(result);
 
-    ObjectMapper jsonOM = new ObjectMapper();
-
     Map jsonResult = jsonOM.readValue(result, Map.class);
     assertTrue("kein access_token-Key enthalten", jsonResult.containsKey("access_token"));
 
     String accessTokenString = jsonResult.get("access_token").toString();
-    String jwtParts[] = accessTokenString.split("\\.");
-    String header_b64 = jwtParts[0];
-    String content_b64 = jwtParts[1];
-    String sig_b64 = jwtParts[2];
-
-    Map<String, Object> accessTokenMap = jsonOM.readValue(Base64.getUrlDecoder().decode(content_b64), Map.class);
-    // das Token ist fuer uns ausgestellt
-    assertEquals(configOAuthMap.get("resource"), accessTokenMap.get("azp"));
-    assertNotNull(accessTokenMap.get("iss"));
-    // das Token ist von demjenigen ausgestellt, den wir befragt haben
-    assertTrue(accessTokenMap.get("iss").toString().startsWith(configOAuthMap.get("auth-server-url").toString()));
+    checkAccessTokenString(accessTokenString);
   }
+
+  @Test
+  public void test0002_AccessToken_mit_Spring_OAuth2RestTemplate() throws JsonParseException, JsonMappingException, IOException {
+    String tokenUrl = configOAuthMap.get("auth-server-url") + "/realms/" + configOAuthMap.get("realm")
+        + "/protocol/openid-connect/token";
+
+    ClientCredentialsResourceDetails ccrd = new ClientCredentialsResourceDetails();
+    ccrd.setClientId(configOAuthMap.get("resource").toString());
+    ccrd.setClientSecret(((Map<?, ?>) configOAuthMap.get("credentials")).get("secret").toString());
+    ccrd.setAccessTokenUri(tokenUrl);
+
+    // Create the RestTemplate and add a the Token Provider
+    OAuth2RestTemplate oa2rt = new OAuth2RestTemplate(ccrd);
+    OAuth2AccessToken oa2at = oa2rt.getAccessToken();
+    String accessTokenString = oa2at.getValue();
+    checkAccessTokenString(accessTokenString);
+  }
+
 }
