@@ -10,9 +10,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import org.apache.http.client.ClientProtocolException;
 import org.junit.BeforeClass;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
@@ -31,7 +35,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.client.DefaultOAuth2ClientContext;
 import org.springframework.security.oauth2.client.OAuth2RestTemplate;
+import org.springframework.security.oauth2.client.token.DefaultAccessTokenRequest;
+import org.springframework.security.oauth2.client.token.DefaultRequestEnhancer;
+import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsAccessTokenProvider;
 import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsResourceDetails;
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.util.LinkedMultiValueMap;
@@ -224,6 +232,68 @@ public class OAuthDemo {
     OAuth2AccessToken oa2at = oa2rt.getAccessToken();
     String accessTokenString = oa2at.getValue();
     checkAccessTokenString(accessTokenString, null, null);
+  }
+
+  @Test
+  public void test0002a_AccessToken_und_audience_mit_Spring_OAuth2RestTemplate()
+      throws ClientProtocolException,
+        IOException,
+        VerificationException {
+    /*
+     * Wie kann man eine "audience" in ein OAuth-Ticket bringen mit OAuth2RestTemplate? Die grundsaetzliche Idee kommt von [1]
+     *
+     * [1] https://community.auth0.com/t/audience-not-supported-in-springs-enableoauth2client/11248/2
+     */
+    String desiredAudience = "aval-oauth-demo-github-unittest-demo-client-1";
+
+    String tokenUrl = configOAuthMap.get("auth-server-url") + "/realms/" + configOAuthMap.get("realm")
+        + "/protocol/openid-connect/token";
+
+    ClientCredentialsResourceDetails ccrd = new ClientCredentialsResourceDetails();
+    ccrd.setClientId(configOAuthMap.get("resource").toString());
+    ccrd.setClientSecret(((Map<?, ?>) configOAuthMap.get("credentials")).get("secret").toString());
+    ccrd.setAccessTokenUri(tokenUrl);
+
+    // das hier hilft NICHT, da ClientCredentialsAccessTokenProvider intern nochmal grant_type="client_credentials" setzt.
+    ccrd.setGrantType("urn:ietf:params:oauth:grant-type:uma-ticket");
+
+    // Add extra parameters
+    DefaultAccessTokenRequest defaultAccessTokenRequest = new DefaultAccessTokenRequest();
+    Map<String, String> params = new HashMap<>();
+    params.put(OAuth2Constants.AUDIENCE, desiredAudience);
+    /* Das hier ist der ERSTE WICHTIGE Teil, damit die "audience" vom Server auch im Ticket gesetzt wird.
+     *
+     * Wenn der grant_type="client_credentials" zum Einsatz kommt, dann ist nicht die gewuenschte "audience" im Ticket,
+     * sondern es steht in meinen Tests immer "account" drin.
+     *
+     * https://www.keycloak.org/docs/latest/authorization_services/#_service_obtaining_permissions
+     */
+    params.put(OAuth2Constants.GRANT_TYPE, "urn:ietf:params:oauth:grant-type:uma-ticket");
+    defaultAccessTokenRequest.setAll(params);
+
+    // Create a RequestEnhancer that will look for extra parameters
+    DefaultRequestEnhancer defaultRequestEnhancer = new DefaultRequestEnhancer();
+    List<String> parameterIncludes = new ArrayList<>();
+    parameterIncludes.add(OAuth2Constants.AUDIENCE);
+    /* Das hier ist der ZWEITE WICHTIGE Teil, damit die "audience" vom Server auch im Ticket gesetzt wird.
+     *
+     * Der Enhancer wird zum Glueck aufgerufen, nachdem der ClientCredentialsAccessTokenProvider schon den Http-Form-Parameter
+     * "grant_type" gesetzt hat, sodass dieser hiermit ueberschrieben werden kann
+     *
+     * https://www.keycloak.org/docs/latest/authorization_services/#_service_obtaining_permissions
+     */
+    parameterIncludes.add(OAuth2Constants.GRANT_TYPE);
+    defaultRequestEnhancer.setParameterIncludes(parameterIncludes);
+
+    // Create a new Token Provider
+    ClientCredentialsAccessTokenProvider clientCredentialsAccessTokenProvider = new ClientCredentialsAccessTokenProvider();
+    clientCredentialsAccessTokenProvider.setTokenRequestEnhancer(defaultRequestEnhancer);
+
+    // Create the RestTemplate and add a the Token Provider
+    OAuth2RestTemplate oa2rt = new OAuth2RestTemplate(ccrd, new DefaultOAuth2ClientContext(defaultAccessTokenRequest));
+    oa2rt.setAccessTokenProvider(clientCredentialsAccessTokenProvider);
+    OAuth2AccessToken oa2at = oa2rt.getAccessToken();
+    checkAccessTokenString(oa2at.getValue(), desiredAudience, null);
   }
 
   @Test
