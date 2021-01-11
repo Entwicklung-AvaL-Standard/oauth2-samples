@@ -44,11 +44,15 @@ import org.springframework.security.oauth2.client.token.grant.client.ClientCrede
 import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import de.avalstandard.oauth.demo.client1.ApplicationUnittestDemoClient1;
+import de.avalstandard.oauth.demo.client1.ControllerDemoClient1;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class OAuthDemo {
@@ -350,5 +354,97 @@ public class OAuthDemo {
     String accessTokenString = atr.getToken();
     KeycloakDeployment kcd = KeycloakDeploymentBuilder.build(authzClient.getConfiguration());
     checkAccessTokenString(accessTokenString, null, kcd);
+  }
+
+  @Test
+  public void test0005_AudienceVerification_im_SpringAdapter()
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException,
+        InterruptedException {
+
+    Map<String, String> pathPrefix2configFilenameMap = new HashMap<>();
+    pathPrefix2configFilenameMap.put("/demo-client1", "aval-oauth-demo-github-unittest-demo-client-1.config.json");
+    pathPrefix2configFilenameMap.put("/demo-client1/audience-verification/adapter",
+        "aval-oauth-demo-github-unittest-demo-client-1.mit-audience-check.config.json");
+
+    PathBasedKeycloakConfigResolver.setPrefix2ConfigFilenameMap(pathPrefix2configFilenameMap);
+
+    Thread threadClient1 = new Thread() {
+      @Override
+      public void run() {
+        ApplicationUnittestDemoClient1.main(new String[0]);
+      }
+    };
+    threadClient1.setDaemon(true);
+    threadClient1.start();
+
+    while (!ControllerDemoClient1.controllerInitialized.get()) {
+      Thread.sleep(1);
+    }
+
+    AuthzClient authzClient = AuthzClient.create(new ByteArrayInputStream(configOAuthString.getBytes(StandardCharsets.UTF_8)));
+
+    /*
+     * Wenn der Security-Adapter die Audience nicht prueft, muss das die Web-Anwendung selber machen.
+     */
+    {
+      AuthorizationRequest authRequest = new AuthorizationRequest();
+      // Es wird hier keine Audience explizit gesetzt bzw. nicht diejenige, die der Client eigentlich braucht
+      // authRequest.setAudience("aval-oauth-demo-github-unittest-demo-client-1");
+      AuthorizationResponse atrOhneExpliziteAudience = authzClient.authorization().authorize(authRequest);
+
+      RestTemplate rest = new RestTemplate();
+      HttpHeaders headers = new HttpHeaders();
+      headers.add("Content-Type", "application/x-www-form-urlencoded");
+      headers.add("Accept", "*/*");
+      headers.add("Authorization", "Bearer " + atrOhneExpliziteAudience.getToken());
+      HttpEntity<String> httpRequest = new HttpEntity<>("", headers);
+
+      ResponseEntity<String> responseEntity = rest.exchange(
+          "http://localhost:8080/demo-client1/audience-verification/manual/echo",
+          HttpMethod.GET, httpRequest, String.class);
+      String body = responseEntity.getBody();
+      assertNotNull(body);
+      System.out.println(body);
+
+      try {
+        responseEntity = rest.exchange("http://localhost:8080/demo-client1/audience-verification/adapter/echo",
+            HttpMethod.GET, httpRequest, String.class);
+        body = responseEntity.getBody();
+        System.out.println(body);
+        fail("Zugriff auf Endpunkt mit Adapter-Audience-Verifikation sollte fehlschlagen.");
+      } catch (HttpClientErrorException ex) {
+        System.out.println(ex);
+        assertEquals(401, ex.getRawStatusCode());
+        assertTrue(ex.getResponseBodyAsString().contains("/demo-client1/audience-verification/adapter/echo"));
+      }
+    }
+
+    {
+      AuthorizationRequest authRequest = new AuthorizationRequest();
+      authRequest.setAudience("aval-oauth-demo-github-unittest-demo-client-1");
+      AuthorizationResponse atrMitExpliziteAudience = authzClient.authorization().authorize(authRequest);
+
+      RestTemplate rest = new RestTemplate();
+      HttpHeaders headers = new HttpHeaders();
+      headers.add("Content-Type", "application/x-www-form-urlencoded");
+      headers.add("Accept", "*/*");
+      headers.add("Authorization", "Bearer " + atrMitExpliziteAudience.getToken());
+      HttpEntity<String> httpRequest = new HttpEntity<>("", headers);
+
+      ResponseEntity<String> responseEntity = rest.exchange(
+          "http://localhost:8080/demo-client1/audience-verification/manual/echo",
+          HttpMethod.GET, httpRequest, String.class);
+      String body = responseEntity.getBody();
+      assertNotNull(body);
+      System.out.println(body);
+
+      responseEntity = rest.exchange("http://localhost:8080/demo-client1/audience-verification/adapter/echo",
+          HttpMethod.GET, httpRequest, String.class);
+      body = responseEntity.getBody();
+      System.out.println(body);
+    }
   }
 }

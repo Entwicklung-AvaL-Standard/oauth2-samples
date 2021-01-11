@@ -1,0 +1,12 @@
+{
+  "realm": "avalstandard",
+  "auth-server-url": "https://auth-test.avalstandard.de/auth/",
+  "ssl-required": "external",
+  "resource": "aval-oauth-demo-github-unittest-demo-client-1",
+  "verify-token-audience": false,
+  "credentials": {
+    "secret": "cd0d16ac-81ad-4057-9fce-e7a9897f7ce8"
+  },
+  "confidential-port": 0,
+  "policy-enforcer": {}
+}
