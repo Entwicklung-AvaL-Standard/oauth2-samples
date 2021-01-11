@@ -384,6 +384,9 @@ public class OAuthDemo {
       Thread.sleep(1);
     }
 
+    String urlClient1 = "http://localhost:" + ApplicationUnittestDemoClient1.CLIENT1_HTTP_PORT.get()
+        + "/demo-client1/audience-verification";
+
     AuthzClient authzClient = AuthzClient.create(new ByteArrayInputStream(configOAuthString.getBytes(StandardCharsets.UTF_8)));
 
     /*
@@ -402,16 +405,14 @@ public class OAuthDemo {
       headers.add("Authorization", "Bearer " + atrOhneExpliziteAudience.getToken());
       HttpEntity<String> httpRequest = new HttpEntity<>("", headers);
 
-      ResponseEntity<String> responseEntity = rest.exchange(
-          "http://localhost:8080/demo-client1/audience-verification/manual/echo",
-          HttpMethod.GET, httpRequest, String.class);
+      ResponseEntity<String> responseEntity = rest.exchange(urlClient1 + "/manual/echo", HttpMethod.GET, httpRequest,
+          String.class);
       String body = responseEntity.getBody();
       assertNotNull(body);
       System.out.println(body);
 
       try {
-        responseEntity = rest.exchange("http://localhost:8080/demo-client1/audience-verification/adapter/echo",
-            HttpMethod.GET, httpRequest, String.class);
+        responseEntity = rest.exchange(urlClient1 + "/adapter/echo", HttpMethod.GET, httpRequest, String.class);
         body = responseEntity.getBody();
         System.out.println(body);
         fail("Zugriff auf Endpunkt mit Adapter-Audience-Verifikation sollte fehlschlagen.");
@@ -434,15 +435,13 @@ public class OAuthDemo {
       headers.add("Authorization", "Bearer " + atrMitExpliziteAudience.getToken());
       HttpEntity<String> httpRequest = new HttpEntity<>("", headers);
 
-      ResponseEntity<String> responseEntity = rest.exchange(
-          "http://localhost:8080/demo-client1/audience-verification/manual/echo",
-          HttpMethod.GET, httpRequest, String.class);
+      ResponseEntity<String> responseEntity = rest.exchange(urlClient1 + "/manual/echo", HttpMethod.GET, httpRequest,
+          String.class);
       String body = responseEntity.getBody();
       assertNotNull(body);
       System.out.println(body);
 
-      responseEntity = rest.exchange("http://localhost:8080/demo-client1/audience-verification/adapter/echo",
-          HttpMethod.GET, httpRequest, String.class);
+      responseEntity = rest.exchange(urlClient1 + "/adapter/echo", HttpMethod.GET, httpRequest, String.class);
       body = responseEntity.getBody();
       System.out.println(body);
     }
