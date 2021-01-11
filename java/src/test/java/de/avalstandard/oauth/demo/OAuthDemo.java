@@ -24,6 +24,7 @@ import org.keycloak.adapters.rotation.AdapterTokenVerifier;
 import org.keycloak.adapters.rotation.AdapterTokenVerifier.VerifiedTokens;
 import org.keycloak.authorization.client.AuthzClient;
 import org.keycloak.common.VerificationException;
+import org.keycloak.representations.idm.authorization.AuthorizationRequest;
 import org.keycloak.representations.idm.authorization.AuthorizationResponse;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -240,6 +241,27 @@ public class OAuthDemo {
     AuthorizationResponse atr = authzClient.authorization().authorize();
     String accessTokenString = atr.getToken();
     checkAccessTokenString(accessTokenString, null, null);
+  }
+
+  @Test
+  public void test0003a_AccessToken_und_audience_mit_Keycloak_AuthzClient()
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException {
+    String desiredAudience = "aval-oauth-demo-github-unittest-demo-client-1";
+
+    AuthzClient authzClient = AuthzClient.create(new ByteArrayInputStream(configOAuthString.getBytes(StandardCharsets.UTF_8)));
+    /*
+     * Erfordert, dass die Client-Konfiguration im Keycloak-Server auf "Access Type = confidential" und
+     * "Authorization Enabled = ON" hat, da hier standardmaessig der grant_type=urn:ietf:params:oauth:grant-type:uma-ticket
+     * verwendet wird.
+     */
+    AuthorizationRequest authRequest = new AuthorizationRequest();
+    authRequest.setAudience(desiredAudience);
+    AuthorizationResponse atr = authzClient.authorization().authorize(authRequest);
+    String accessTokenString = atr.getToken();
+    checkAccessTokenString(accessTokenString, desiredAudience, null);
   }
 
   @Test
