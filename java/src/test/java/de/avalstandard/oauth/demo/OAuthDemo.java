@@ -30,6 +30,7 @@ import org.keycloak.authorization.client.AuthzClient;
 import org.keycloak.common.VerificationException;
 import org.keycloak.representations.idm.authorization.AuthorizationRequest;
 import org.keycloak.representations.idm.authorization.AuthorizationResponse;
+import org.keycloak.util.JsonSerialization;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -60,6 +61,43 @@ public class OAuthDemo {
   private static ObjectMapper jsonOM = new ObjectMapper();
   private static String configOAuthString = null;
   private static Map<String, Object> configOAuthMap = null;
+
+  private static void prettyPrintJson(final String s) throws IOException {
+    if (s == null) {
+      return;
+    }
+
+    if ("".equals(s)) {
+      return;
+    }
+
+    if (s.indexOf('{') > -1) {
+      Object o_bytes_dec = JsonSerialization.readValue(s, Object.class);
+      System.out.println(JsonSerialization.writeValueAsPrettyString(o_bytes_dec));
+      return;
+    }
+
+    if (s.indexOf('.') > -1) {
+      String[] arr = s.split("\\.");
+      for (int i = 0; i < arr.length; i++) {
+        try {
+          prettyPrintJson(arr[i]);
+        } catch (Exception ex) {
+          // ignore
+        }
+      }
+      return;
+    }
+
+    try {
+      byte[] b64u_dec = Base64.getUrlDecoder().decode(s);
+      Object o_bytes_dec = JsonSerialization.readValue(b64u_dec, Object.class);
+      System.out.println(JsonSerialization.writeValueAsPrettyString(o_bytes_dec));
+      return;
+    } catch (JsonParseException jpe) {
+      // ignore
+    }
+  }
 
   @BeforeClass
   public static void setUpBeforeClass() throws Exception {
@@ -444,6 +482,129 @@ public class OAuthDemo {
       responseEntity = rest.exchange(urlClient1 + "/adapter/echo", HttpMethod.GET, httpRequest, String.class);
       body = responseEntity.getBody();
       System.out.println(body);
+    }
+  }
+
+  @Test
+  public void test0006_AccessToken_mit_Claims()
+      throws JsonParseException,
+        JsonMappingException,
+        IOException,
+        VerificationException {
+
+    String desiredAudience = "aval-oauth-demo-github-unittest-demo-client-1";
+
+    MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+    formData.add("client_id", configOAuthMap.get("resource").toString());
+    formData.add("client_secret", ((Map<?, ?>) configOAuthMap.get("credentials")).get("secret").toString());
+
+    /* "audience" muss angegeben werden, ansonsten kommt der Fehler:
+     * 400 Bad Request: [{"error":"invalid_request","error_description":"You must provide the issuedFor"}]
+     */
+    formData.add("audience", desiredAudience);
+
+    /* Da die claims ein Teil der "Permission"-Behandlung sind, muss auch der Grant-Type verwendet werden, der fuer Permissions
+     * geeignet ist.
+     *
+     * "grant_type: This parameter is required. Must be urn:ietf:params:oauth:grant-type:uma-ticket." [1]
+     *
+     * Erfordert, dass die Client-Konfiguration im Keycloak-Server auf "Access Type = confidential" steht und
+     * "Authorization Enabled = ON" hat.
+     *
+     * [1] https://www.keycloak.org/docs/latest/authorization_services/index.html#_service_obtaining_permissions
+     */
+    formData.add("grant_type", "urn:ietf:params:oauth:grant-type:uma-ticket");
+
+    /* Diese Werte sind nur Beispiele zur Demonstration des Mechanismus. Sie sind keine gueltigen Werte im AvaL-Kontext.
+     *
+     * Gueltige Claim-Namen, zugehoerige Werte und die entsprechende Semantik muessen im Anwendungskontext der OAuth-Nutzer
+     * vereinbart werden (hier AvaL).
+     */
+    Map<String, List<String>> avalClaims = new HashMap<>();
+    for (int i = 0; i < 3; ++i) {
+      String avalClaim = "aval-claim-" + i;
+      List<String> values = new ArrayList<>();
+      for (int j = 0; j < 3; ++j) {
+        String avalClaimValue = avalClaim + "-value-" + j;
+        values.add(avalClaimValue);
+      }
+      avalClaims.put(avalClaim, values);
+    }
+    byte[] avalClaimsBytes = jsonOM.writeValueAsBytes(avalClaims);
+
+    /* "claim_token" muss als "base64url" kodiert werden.
+     *
+     * "claim_token: ... It MUST be base64url encoded unless specified otherwise by the claim token format. ..." [1]
+     *
+     * "... A JWT is represented as a sequence of URL-safe parts separated by period ('.') characters.
+     * Each part contains a base64url-encoded value. ..." [2]
+     *
+     * [1] User-Managed Access (UMA) 2.0 Grant for OAuth 2.0 Authorization: https://docs.kantarainitiative.org/uma/wg/rec-oauth-uma-grant-2.0.html#uma-grant-type
+     * [2] JSON Web Token (JWT): https://tools.ietf.org/html/rfc7519#section-3
+     */
+    String aval_claim_token = Base64.getUrlEncoder().encodeToString(avalClaimsBytes);
+
+    /* "claim_token: ... This parameter allows clients to push claims to Keycloak." [1]
+     *
+     * [1] https://www.keycloak.org/docs/latest/authorization_services/index.html#_service_obtaining_permissions
+     */
+    formData.add("claim_token", aval_claim_token);
+
+    /* "... Keycloak supports two token formats: urn:ietf:params:oauth:token-type:jwt and
+     * https://openid.net/specs/openid-connect-core-1_0.html#IDToken ..." [1]
+     *
+     * Wenn das "claim_token_format" als "https://openid.net/specs/openid-connect-core-1_0.html#IDToken" angegeben ist,
+     * dann wird "claim_token" als ein komplettes IDToken interpretiert, nicht nur als die zusaetzlichen Claims,
+     * die wir hinzufuegen wollen, siehe [4].
+     *
+     * Also MUSS "claim_token_format" mit "urn:ietf:params:oauth:token-type:jwt" angegeben werden, was dann auf passendere
+     * Art und Weise interpretiert wird [5].
+     *
+     * Spaeter koennen die im Request mitgeschickten Claims unter AccessToken->Authorization->Permissions->Claims gefunden werden [6].
+     *
+     * [1] https://www.keycloak.org/docs/latest/authorization_services/index.html#_service_obtaining_permissions
+     * [2] https://docs.kantarainitiative.org/uma/wg/rec-oauth-uma-grant-2.0.html#uma-grant-type
+     * [3] https://tools.ietf.org/html/rfc7519#section-9
+     * [4] https://github.com/keycloak/keycloak/blob/12.0.1/services/src/main/java/org/keycloak/protocol/oidc/endpoints/TokenEndpoint.java#L1268
+     * [5] https://github.com/keycloak/keycloak/blob/12.0.1/services/src/main/java/org/keycloak/authorization/authorization/AuthorizationTokenService.java#L113
+     * [6] https://github.com/keycloak/keycloak/blob/12.0.1/services/src/main/java/org/keycloak/authorization/authorization/AuthorizationTokenService.java#L333
+     */
+    formData.add("claim_token_format", "urn:ietf:params:oauth:token-type:jwt");
+
+    String tokenUrl = configOAuthMap.get("auth-server-url") + "/realms/" + configOAuthMap.get("realm")
+        + "/protocol/openid-connect/token";
+
+    String result = postFormToURL(formData, tokenUrl);
+    assertNotNull(result);
+
+    Map jsonResult = jsonOM.readValue(result, Map.class);
+    assertTrue("kein access_token-Key enthalten", jsonResult.containsKey("access_token"));
+
+    String accessTokenString = jsonResult.get("access_token").toString();
+    checkAccessTokenString(accessTokenString, null, null);
+
+    String jwtParts[] = accessTokenString.split("\\.");
+    String content_b64 = jwtParts[1];
+    String accessTokenJson = new String(Base64.getUrlDecoder().decode(content_b64), StandardCharsets.UTF_8);
+    prettyPrintJson(accessTokenJson);
+
+    assertTrue("Token enthaelt einen mitgeschickten Claim nicht", accessTokenJson.contains("aval-claim-0-value-0"));
+
+    Map accessTokenMap = jsonOM.readValue(accessTokenJson, Map.class);
+
+    // Die mitgeschickten Claims koennen unter AccessToken->Authorization->Permissions->Claims gefunden werden
+    Map authorizationMap = (Map) accessTokenMap.get("authorization");
+    List permissionsList = (List) authorizationMap.get("permissions");
+    for (int i = 0; i < permissionsList.size(); ++i) {
+      Map permissionMap = (Map) permissionsList.get(i);
+      Map claimsMap = (Map) permissionMap.get("claims");
+
+      // pruefen, ob alle mitgeschickten Claims und ihre Werte im Token enthalten sind
+      for (Map.Entry<String, List<String>> requestedClaim : avalClaims.entrySet()) {
+        assertTrue(claimsMap.containsKey(requestedClaim.getKey()));
+        List claimValues = (List) claimsMap.get(requestedClaim.getKey());
+        assertTrue(claimValues.containsAll(requestedClaim.getValue()));
+      }
     }
   }
 }
