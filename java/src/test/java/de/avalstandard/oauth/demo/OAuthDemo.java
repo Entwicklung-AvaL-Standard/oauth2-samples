@@ -25,9 +25,9 @@ import org.keycloak.OAuth2Constants;
 import org.keycloak.adapters.KeycloakDeployment;
 import org.keycloak.adapters.KeycloakDeploymentBuilder;
 import org.keycloak.adapters.rotation.AdapterTokenVerifier;
-import org.keycloak.adapters.rotation.AdapterTokenVerifier.VerifiedTokens;
 import org.keycloak.authorization.client.AuthzClient;
 import org.keycloak.common.VerificationException;
+import org.keycloak.representations.AccessToken;
 import org.keycloak.representations.idm.authorization.AuthorizationRequest;
 import org.keycloak.representations.idm.authorization.AuthorizationResponse;
 import org.keycloak.util.JsonSerialization;
@@ -140,10 +140,15 @@ public class OAuthDemo {
       /*
        * prueft intern die JWT-Signatur inklusive Beschaffung der notwendigen PublicKeys vom Server. Daher ist auch ein solches
        * KeycloakDeployment notwendig, da dort die notwendigen URLs enthalten sind.
+       *
+       * verifyToken() prueft auch gleich die Audience mit,
+       * wenn das im KeycloakDeployment bzw. der zugehoerigen Config so gefordert ist [1].
+       *
+       * [1] https://github.com/keycloak/keycloak/blob/12.0.1/adapters/oidc/adapter-core/src/main/java/org/keycloak/adapters/rotation/AdapterTokenVerifier.java#L49
        */
-      VerifiedTokens tokens = AdapterTokenVerifier.verifyTokens(accessTokenString, null, keycloakDeployment);
-      if (tokens != null) {
-        tokens = null;
+      AccessToken accessToken = AdapterTokenVerifier.verifyToken(accessTokenString, keycloakDeployment);
+      if (accessToken != null) {
+        accessToken = null;
       }
     }
   }
