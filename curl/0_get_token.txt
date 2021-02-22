@@ -1,0 +1,5 @@
+curl --location --request POST 'https://auth-test.avalstandard.de/auth/realms/avalstandard/protocol/openid-connect/token' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'client_id=aval-oauth-demo-github-unittest' \
+--data-urlencode 'client_secret=77fa52df-595f-4581-8b57-92bb072357c3' \
+--data-urlencode 'grant_type=client_credentials'
