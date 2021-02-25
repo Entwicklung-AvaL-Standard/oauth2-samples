@@ -1,0 +1,49 @@
+{
+    "exp": 1614270064,
+    "iat": 1614269764,
+    "jti": "56e1b9d6-af1e-45db-917f-4480e6a0e151",
+    "iss": "https://auth-test.avalstandard.de/auth/realms/avalstandard",
+    "aud": "aval-oauth-demo-github-unittest-demo-client-1",
+    "sub": "4fd3d454-8c71-43b8-b729-c565332acf6b",
+    "typ": "Bearer",
+    "azp": "aval-oauth-demo-github-unittest",
+    "session_state": "a923af9f-b2e3-445d-a1a5-e1185618064d",
+    "preferred_username": "service-account-aval-oauth-demo-github-unittest",
+    "email_verified": false,
+    "acr": "1",
+    "realm_access": {
+        "roles": [
+            "offline_access",
+            "uma_authorization"
+        ]
+    },
+    "resource_access": {
+        "aval-oauth-demo-github-unittest": {
+            "roles": [
+                "uma_protection"
+            ]
+        },
+        "account": {
+            "roles": [
+                "manage-account",
+                "manage-account-links",
+                "view-profile"
+            ]
+        }
+    },
+    "authorization": {
+        "permissions": [
+            {
+                "rsid": "c7e870db-0435-4c73-8ea6-61b73615d02e",
+                "rsname": "Default Resource"
+            }
+        ]
+    },
+    "scope": "profile roles email",
+    "clientHost": "XXX.XXX.XXX.XXX",
+    "clientId": "aval-oauth-demo-github-unittest",
+    "clientAddress": "XXX.XXX.XXX.XXX",
+    "client_id": "aval-oauth-demo-github-unittest",
+    "username": "service-account-aval-oauth-demo-github-unittest",
+    "active": true
+}
