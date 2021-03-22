@@ -3,4 +3,4 @@ curl --location --request POST 'https://auth-test.avalstandard.de/auth/realms/av
 --data-urlencode 'client_id=de.auftraggeber' \
 --data-urlencode 'client_secret=05cd197c-52d0-483c-8895-36a023e562c0' \
 --data-urlencode 'grant_type=urn:ietf:params:oauth:grant-type:uma-ticket' \
---data-urlencode 'audience=de.auftragnehmer'
+--data-urlencode 'audience=de.auftragnehmer.niederlassung'
