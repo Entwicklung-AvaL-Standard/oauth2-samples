@@ -1,4 +1,5 @@
 const cfgKeycloak = require('../config/keycloak.json');
+const cfgDefaults = require('../config/defaults.json');
 const KeycloakConnect = require('keycloak-connect');
 const axiosRequest = require('./axiosRequestWrapper.js');
 const qs = require('qs');
@@ -10,7 +11,7 @@ async function tryGetAccessTokenWithAxios(withAudience) {
             "grant_type": "urn:ietf:params:oauth:grant-type:uma-ticket",
             "client_id": `${cfgKeycloak.resource}`,
             "client_secret": `${cfgKeycloak.credentials.secret}`,
-            "audience": `${cfgKeycloak.audience}`
+            "audience": `${cfgDefaults.sampleAudience}`
         });
     } else {
         reqBody = qs.stringify({
@@ -35,7 +36,11 @@ async function tryGetAccessTokenWithAxios(withAudience) {
             let accessTokenString = promise.response.body.access_token.toString();
             if (accessTokenString !== '') {
                 console.log('Receiving Access Token from given Client Credentials with axios was successful.');
-                return {success: true, accessToken: await createAccessTokenObject(accessTokenString), accessTokenString: accessTokenString};
+                return {
+                    success: true,
+                    accessToken: await createAccessTokenObject(accessTokenString),
+                    accessTokenString: accessTokenString
+                };
             } else {
                 return {success: false};
             }
@@ -64,7 +69,7 @@ async function createAccessTokenObject(accessTokenString) {
 
 async function tryGetAccessTokenWithKeycloakConnect(accessTokenString) {
     let promise;
-    let keycloakConnect = new KeycloakConnect(cfgKeycloak,cfgKeycloak);
+    let keycloakConnect = new KeycloakConnect(cfgKeycloak, cfgKeycloak);
     try {
         promise = await keycloakConnect.grantManager.obtainFromClientCredentials();
         if (typeof promise != 'undefined') {
@@ -82,9 +87,14 @@ async function tryGetAccessTokenWithKeycloakConnect(accessTokenString) {
     }
 }
 
-async function verifyAccessTokenAudience(accessToken) {
-    let expectedAudience = cfgKeycloak.audience;
-    return accessToken.aud === expectedAudience;
+async function verifyAccessTokenAudience(accessToken, expectedAudience) {
+    if (Array.isArray(accessToken.aud)) {
+        return typeof accessToken.aud.find(value => {
+            return value === expectedAudience;
+        }) != 'undefined';
+    } else {
+        return accessToken.aud === expectedAudience;
+    }
 }
 
 async function verifyAccessTokenWithKeycloakConnect(accessTokenString) {
@@ -96,4 +106,9 @@ async function verifyAccessTokenWithKeycloakConnect(accessTokenString) {
     } else return typeof result === typeof accessTokenString;
 }
 
-module.exports = {tryGetAccessTokenWithAxios, tryGetAccessTokenWithKeycloakConnect, verifyAccessTokenWithKeycloakConnect, verifyAccessTokenAudience}
+module.exports = {
+    tryGetAccessTokenWithAxios,
+    tryGetAccessTokenWithKeycloakConnect,
+    verifyAccessTokenWithKeycloakConnect,
+    verifyAccessTokenAudience
+}

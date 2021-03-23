@@ -6,6 +6,5 @@
   "credentials": {
     "secret": "77fa52df-595f-4581-8b57-92bb072357c3"
   },
-  "confidential-port": 0,
-  "audience": "aval-oauth-demo-github-unittest-demo-client-1"
+  "confidential-port": 0
 }
