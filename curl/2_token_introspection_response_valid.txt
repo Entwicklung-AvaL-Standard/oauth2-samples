@@ -1,0 +1,49 @@
+{
+    "exp": 1616396279,
+    "iat": 1616395979,
+    "jti": "c97ff90e-3693-4290-aca0-133aa2af1f9a",
+    "iss": "https://auth-test.avalstandard.de/auth/realms/avalstandard",
+    "aud": "de.auftragnehmer",
+    "sub": "3cd693fe-3ee9-484e-ac09-31342e463f53",
+    "typ": "Bearer",
+    "azp": "de.auftraggeber",
+    "session_state": "11b3b37c-61ee-43e7-91ec-50b4af02b988",
+    "preferred_username": "service-account-de.auftraggeber",
+    "email_verified": false,
+    "acr": "1",
+    "realm_access": {
+        "roles": [
+            "offline_access",
+            "uma_authorization"
+        ]
+    },
+    "resource_access": {
+        "de.auftraggeber": {
+            "roles": [
+                "uma_protection"
+            ]
+        },
+        "account": {
+            "roles": [
+                "manage-account",
+                "manage-account-links",
+                "view-profile"
+            ]
+        }
+    },
+    "authorization": {
+        "permissions": [
+            {
+                "rsid": "738f6e06-beaa-45bf-b122-4f0b07dd32cf",
+                "rsname": "Default Resource"
+            }
+        ]
+    },
+    "scope": "profile roles email",
+    "clientId": "de.auftraggeber",
+    "clientHost": "XXX.XXX.XXX.XXX",
+    "clientAddress": "XXX.XXX.XXX.XXX",
+    "client_id": "de.auftraggeber",
+    "username": "service-account-de.auftraggeber",
+    "active": true
+}

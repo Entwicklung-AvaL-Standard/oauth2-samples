@@ -1,0 +1,5 @@
+curl --location --request POST 'https://auth-test.avalstandard.de/auth/realms/avalstandard/protocol/openid-connect/token' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'client_id=de.auftraggeber' \
+--data-urlencode 'client_secret=05cd197c-52d0-483c-8895-36a023e562c0' \
+--data-urlencode 'grant_type=client_credentials'

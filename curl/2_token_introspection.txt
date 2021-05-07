@@ -1,0 +1,4 @@
+curl --location --request POST 'https://auth-test.avalstandard.de/auth/realms/avalstandard/protocol/openid-connect/token/introspect' \
+--header 'Authorization: Basic ZGUuYXVmdHJhZ25laG1lcjpkMGMzMDJkNS1lODhhLTRmNzYtOTEzMC04MjY4MDg4NGQ0NmE=' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'token=<INSERT A NEWLY RETRIEVED TOKEN HERE>'
