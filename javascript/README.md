@@ -1,6 +1,6 @@
 # AvaL-JavaScript-OAuth-Demos
 
-Dieses Repository enthält einige Code-Beispiele zur Nutzung des zentralen OAuth-Servers durch JavaScript.
+Dieses Repository enthält einige Code-Beispiele zur Nutzung des zentralen OAuth-Servers durch eine serverseitige JavaScript-Applikation (wie beispielsweise Node.JS).
 
 Die JavaScript Code Samples bestehen hauptsächlich aus verschiedenen Tests. Innerhalb der Tests werden verschiedene Module aufgerufen, welche die entsprechende Programmlogik enthalten. Die Tests befinden sich im Verzeichnis /js/tests, und die Module im Verzeichnis /js/modules.
 
@@ -30,7 +30,7 @@ Wenn man dort den Befehl
 ```
 npm install
 ```
-ausführt, lädt der node package manager alle benötigten Module (in package.json unter dependencies aufgeführt) herunter und legt diese in dem Ordner /node_Modules ab.
+ausführt, lädt der node package manager alle benötigten Module (in package.json unter dependencies aufgeführt) herunter und legt diese in dem Ordner /node_modules ab.
 
 ## Ausführung der Code Samples
 
