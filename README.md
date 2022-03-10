@@ -1,5 +1,5 @@
 # AvaL-OAuth-Demos
-##DE
+## DE
 Dieses Repo enthält Code-Beispiele in unterschiedlichen Programmiersprachen hinsichtlich der Verwendung des zentralen OAuth-Servers.
 
 Derzeit sind Beispiele für die folgenden Programmiersprachen / Werkzeuge verfügbar:
@@ -11,7 +11,7 @@ Weitere Beispiele sind herzlich willkommen und können von der AvaL Community be
 
 Weitere Hinweise zum Thema Authentifizierung finden sich im Kapitel 4 des Dokuments [Austausch von auftragsbezogenen Leistungsdaten Dokumentation Teil 4 – Web-Services](https://www.avalstandard.de/files/content/downloads/teil4-webservices-objekte-funktionen/AvaL%20Standard%20Teil%204.3%20Webservice%20und%20Serverdienste%20Partnerverzeichnis%20und%20Authentifizierung%202022-03-09.pdf).
 
-##EN
+## EN
 This repo contains code examples in different programming languages regarding the use of the central OAuth server.
 
 Examples are currently available for the following programming languages/tools:
