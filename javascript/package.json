@@ -11,7 +11,7 @@
   "author": "tegos Group | Hendrik Willeke",
   "license": "UNLICENSED",
   "dependencies": {
-    "axios": "^1.15.0",
+    "axios": "^1.16.0",
     "jest": "^30.3.0",
     "keycloak-connect": "^26.1.1",
     "qs": "^6.15.1",
